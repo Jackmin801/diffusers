@@ -4,20 +4,20 @@ import torch
 import wandb
 import numpy as np
 
-def log_validation(text_encoder, tokenizer, unet, vae, args, accelerator, weight_dtype, epoch):
+def log_validation(text_encoder, tokenizer, unet, vae, accelerator, weight_dtype, epoch, model_checkpoint_id: str, model_checkpoint_revision: str, validation_prompt: str, num_images: int = 4, seed=0):
     logger.info(
-        f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
-        f" {args.validation_prompt}."
+        f"Running validation... \n Generating {num_images} images with prompt:"
+        f" {validation_prompt}."
     )
     # create pipeline (note: unet and vae are loaded again in float32)
     pipeline = DiffusionPipeline.from_pretrained(
-        args.pretrained_model_name_or_path,
+        model_checkpoint_id,
         text_encoder=accelerator.unwrap_model(text_encoder),
         tokenizer=tokenizer,
         unet=unet,
         vae=vae,
         safety_checker=None,
-        revision=args.revision,
+        revision=model_checkpoint_revision,
         torch_dtype=weight_dtype,
     )
     pipeline.scheduler = DPMSolverMultistepScheduler.from_config(pipeline.scheduler.config)
@@ -25,11 +25,11 @@ def log_validation(text_encoder, tokenizer, unet, vae, args, accelerator, weight
     pipeline.set_progress_bar_config(disable=True)
 
     # run inference
-    generator = None if args.seed is None else torch.Generator(device=accelerator.device).manual_seed(args.seed)
+    generator = None if seed is None else torch.Generator(device=accelerator.device).manual_seed(seed)
     images = []
-    for _ in range(args.num_validation_images):
+    for _ in range(num_images):
         with torch.autocast("cuda"):
-            image = pipeline(args.validation_prompt, num_inference_steps=25, generator=generator).images[0]
+            image = pipeline(validation_prompt, num_inference_steps=25, generator=generator).images[0]
         images.append(image)
 
     for tracker in accelerator.trackers:
@@ -40,7 +40,7 @@ def log_validation(text_encoder, tokenizer, unet, vae, args, accelerator, weight
             tracker.log(
                 {
                     "validation": [
-                        wandb.Image(image, caption=f"{i}: {args.validation_prompt}") for i, image in enumerate(images)
+                        wandb.Image(image, caption=f"{i}: {validation_prompt}") for i, image in enumerate(images)
                     ]
                 }
             )

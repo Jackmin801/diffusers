@@ -343,7 +343,7 @@ def parse_args():
     parser.add_argument(
         "--report_to",
         type=str,
-        default="tensorboard",
+        default="wandb",
         help=(
             'The integration to report the results and logs to. Supported platforms are `"tensorboard"`'
             ' (default), `"wandb"` and `"comet_ml"`. Use `"all"` to report to all integrations.'
@@ -504,12 +504,7 @@ class TextualInversionDataset(Dataset):
         if set == "train":
             self._length = self.num_images * repeats
 
-        self.interpolation = {
-            "linear": PIL_INTERPOLATION["linear"],
-            "bilinear": PIL_INTERPOLATION["bilinear"],
-            "bicubic": PIL_INTERPOLATION["bicubic"],
-            "lanczos": PIL_INTERPOLATION["lanczos"],
-        }[interpolation]
+        self.interpolation = PIL_INTERPOLATION[interpolation]
 
         self.templates = imagenet_style_templates_small if learnable_property == "style" else imagenet_templates_small
         self.flip_transform = transforms.RandomHorizontalFlip(p=self.flip_p)
@@ -600,7 +595,7 @@ def main():
 
         if args.push_to_hub:
             repo_id = create_repo(
-                repo_id=args.hub_model_id or Path(args.output_dir).name, exist_ok=True, token=args.hub_token
+                repo_id=args.hub_model_id or Path(args.output_dir).name, exist_ok=True, token=args.hub_token, private=True
             ).repo_id
 
     # Load tokenizer
@@ -713,6 +708,7 @@ def main():
         learnable_property=args.learnable_property,
         center_crop=args.center_crop,
         set="train",
+        interpolation="nearest",
     )
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.train_batch_size, shuffle=True, num_workers=args.dataloader_num_workers

@@ -29,11 +29,11 @@ These are textual inversion adaption weights for {base_model}. You can find some
         f.write(yaml + model_card)
 
 
-def save_progress(text_encoder, placeholder_token_ids, accelerator, args, save_path):
+def save_progress(text_encoder, placeholder_token_ids, accelerator, placeholder_token, save_path):
     learned_embeds = (
         accelerator.unwrap_model(text_encoder)
         .get_input_embeddings()
         .weight[min(placeholder_token_ids) : max(placeholder_token_ids) + 1]
     )
-    learned_embeds_dict = {args.placeholder_token: learned_embeds.detach().cpu()}
+    learned_embeds_dict = {placeholder_token: learned_embeds.detach().cpu()}
     torch.save(learned_embeds_dict, save_path)
