@@ -1,10 +1,10 @@
 from torch.utils.data import Dataset
-import os
 from PIL import Image
 from torchvision import transforms
 import numpy as np
 import torch
 import random
+from datasets import load_dataset
 
 
 PIL_INTERPOLATION = {
@@ -17,9 +17,9 @@ PIL_INTERPOLATION = {
 class TextualInversionDataset(Dataset):
     def __init__(
         self,
-        data_root,
+        dataset_name: str,
         tokenizer,
-        learnable_property="object",  # [object, style]
+        learnable_property: str="object",  # [object, style]
         size=512,
         repeats=100,
         interpolation="bicubic",
@@ -28,7 +28,6 @@ class TextualInversionDataset(Dataset):
         placeholder_token="*",
         center_crop=False,
     ):
-        self.data_root = data_root
         self.tokenizer = tokenizer
         self.learnable_property = learnable_property
         self.size = size
@@ -36,9 +35,9 @@ class TextualInversionDataset(Dataset):
         self.center_crop = center_crop
         self.flip_p = flip_p
 
-        self.image_paths = [os.path.join(self.data_root, file_path) for file_path in os.listdir(self.data_root)]
+        self.ds = load_dataset(dataset_name, split="train")
 
-        self.num_images = len(self.image_paths)
+        self.num_images = len(self.ds)
         self._length = self.num_images
 
         if set == "train":
@@ -55,7 +54,7 @@ class TextualInversionDataset(Dataset):
 
     def __getitem__(self, i):
         example = {}
-        image = Image.open(self.image_paths[i % self.num_images])
+        image = self.ds[i % self.num_images]['image']
 
         if not image.mode == "RGB":
             image = image.convert("RGB")

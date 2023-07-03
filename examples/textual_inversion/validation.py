@@ -4,7 +4,7 @@ import torch
 import wandb
 import numpy as np
 
-def log_validation(text_encoder, tokenizer, unet, vae, accelerator, weight_dtype, epoch, model_checkpoint_id: str, model_checkpoint_revision: str, validation_prompt: str, num_images: int = 4, seed=0):
+def log_validation(text_encoder, tokenizer, unet, vae, accelerator, weight_dtype, epoch, model_checkpoint_id: str, model_checkpoint_revision: str, validation_prompt: list[str], num_images: int = 4, seed=0):
     logger.info(
         f"Running validation... \n Generating {num_images} images with prompt:"
         f" {validation_prompt}."
@@ -27,9 +27,9 @@ def log_validation(text_encoder, tokenizer, unet, vae, accelerator, weight_dtype
     # run inference
     generator = None if seed is None else torch.Generator(device=accelerator.device).manual_seed(seed)
     images = []
-    for _ in range(num_images):
+    for prompt in validation_prompt:
         with torch.autocast("cuda"):
-            image = pipeline(validation_prompt, num_inference_steps=25, generator=generator).images[0]
+            image = pipeline(prompt, num_inference_steps=25, generator=generator).images[0]
         images.append(image)
 
     for tracker in accelerator.trackers:
@@ -40,7 +40,7 @@ def log_validation(text_encoder, tokenizer, unet, vae, accelerator, weight_dtype
             tracker.log(
                 {
                     "validation": [
-                        wandb.Image(image, caption=f"{i}: {validation_prompt}") for i, image in enumerate(images)
+                        wandb.Image(image, caption=f"{i}: {validation_prompt[i]}") for i, image in enumerate(images)
                     ]
                 }
             )

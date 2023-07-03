@@ -1,8 +1,8 @@
 #!/usr/bin/env python
+from typing import List
 import math
 import os
 import shutil
-import warnings
 from pathlib import Path
 
 import torch
@@ -10,7 +10,6 @@ import torch.nn.functional as F
 import torch.utils.checkpoint
 import transformers
 from accelerate import Accelerator
-from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
 from huggingface_hub import create_repo, upload_folder
 from loguru import logger
@@ -20,6 +19,7 @@ from typing import Optional
 from packaging import version
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
+import typer
 
 import diffusers
 from diffusers import (
@@ -41,7 +41,7 @@ from validation import log_validation
 check_min_version("0.18.0.dev0")
 
 def main(
-    train_data_dir: str,
+    dataset_name: str = "NoDataset-12425k3bjsf",
     train_data_repeats: int = 100,
     output_dir: str = "text-inversion-model",
     report_to: str = "wandb",
@@ -69,7 +69,7 @@ def main(
     max_train_steps: int = 5000,
     checkpointing_steps: int = 1000,
     checkpoints_total_limit: Optional[int] = None,
-    validation_prompt: str = "a painting of a cat",
+    validation_prompt: List[str] = ["a painting of a cat"],
     save_as_full_pipeline: bool = False,
     enable_gradient_checkpointing: bool = False,
     enable_xformers_memory_efficient_attention: bool = False,
@@ -86,7 +86,7 @@ def main(
         project_config=accelerator_project_config,
     )
 
-    logger.info(accelerator.state, main_process_only=False)
+    logger.info(str(accelerator.state))
     if accelerator.is_local_main_process:
         transformers.utils.logging.set_verbosity_warning()
         diffusers.utils.logging.set_verbosity_info()
@@ -185,7 +185,7 @@ def main(
 
             xformers_version = version.parse(xformers.__version__)
             if xformers_version == version.parse("0.0.16"):
-                logger.warn(
+                logger.warning(
                     "xFormers 0.0.16 cannot be used for training in some GPUs. If you observe problems during training, please update xFormers to at least 0.0.17. See https://huggingface.co/docs/diffusers/main/en/optimization/xformers for more details."
                 )
             unet.enable_xformers_memory_efficient_attention()
@@ -214,7 +214,7 @@ def main(
     # Dataset and DataLoaders creation:
     from data import TextualInversionDataset
     train_dataset = TextualInversionDataset(
-        data_root=train_data_dir,
+        dataset_name=dataset_name,
         tokenizer=tokenizer,
         size=sample_size,
         placeholder_token=placeholder_token,
@@ -424,7 +424,7 @@ def main(
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
         if hub_model_id is not None and not save_as_full_pipeline:
-            logger.warn("Enabling full model saving because --push_to_hub=True was specified.")
+            logger.warning("Enabling full model saving because --push_to_hub=True was specified.")
             save_full_model = True
         else:
             save_full_model = save_as_full_pipeline
@@ -460,4 +460,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
